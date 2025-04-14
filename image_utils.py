@@ -1,39 +1,10 @@
 import os
-from dotenv import load_dotenv
 from urllib.parse import quote
-from typing import List, Dict, Optional
 import json
+import requests
 
-# Load environment variables
-load_dotenv()
-
-# Get Vercel Project ID from environment variables
-VERCEL_PROJECT_ID = os.environ.get('VERCEL_PROJECT_ID', 'sayyes')
-
-def clean_title(name: str) -> str:
-    """Clean and format a title from a filename."""
-    return name.split("/")[-1].replace("_", " ").split(".")[0].title()
-
-def clean_description(description: str) -> str:
-    """
-    Clean and standardize a description string.
-    
-    Args:
-        description: The description string to clean
-        
-    Returns:
-        Cleaned description string
-    """
-    # Convert to string and strip whitespace
-    description = str(description).strip()
-    
-    # Remove any duplicate descriptions that might be separated by newlines or semicolons
-    if "\n" in description:
-        description = description.split("\n")[0].strip()
-    if ";" in description:
-        description = description.split(";")[0].strip()
-    
-    return description
+# Get project ID from environment or use default
+VERCEL_PROJECT_ID = os.environ.get('VERCEL_PROJECT_ID', 'hebbkx1anhila5yf')
 
 def get_images_by_category(category, style=None, location=None):
     """
@@ -63,13 +34,48 @@ def get_images_by_category(category, style=None, location=None):
         
         # Apply style filter if provided
         if style and items:
-            items = [item for item in items if style.lower() in item.get("title", "").lower() or 
-                    style.lower() in item.get("description", "").lower() or
-                    any(style.lower() in tag.lower() for tag in item.get("tags", []))]
+            filtered_items = []
+            for item in items:
+                # Check title, description, and tags
+                if (style.lower() in item.get("title", "").lower() or 
+                    style.lower() in item.get("description", "").lower() or 
+                    any(style.lower() in tag.lower() for tag in item.get("tags", []))):
+                    filtered_items.append(item)
+            # Only apply filter if we found matches
+            if filtered_items:
+                items = filtered_items
         
         # Apply location filter if provided for venues
         if location and category.lower() == "venues" and items:
-            items = [item for item in items if location.lower() in item.get("location", "").lower()]
+            filtered_items = []
+            for item in items:
+                if location.lower() in item.get("location", "").lower():
+                    filtered_items.append(item)
+            # Only apply filter if we found matches
+            if filtered_items:
+                items = filtered_items
+        
+        # Verify that all items have valid fields
+        for item in items:
+            # Ensure all items have a title
+            if not item.get("title"):
+                item["title"] = "Wedding " + category.title()
+            
+            # Ensure all items have a description
+            if not item.get("description"):
+                item["description"] = f"Beautiful {category} for your special day"
+                
+            # Ensure all items have tags
+            if not item.get("tags"):
+                item["tags"] = [category.title(), "Wedding"]
+            
+            # Add share_url if missing
+            if not item.get("share_url"):
+                item["share_url"] = item.get("image", "")
+        
+        # Make sure we have at least one item
+        if not items:
+            items = get_fallback_images(category)
         
         # Return the formatted response
         return {
@@ -85,12 +91,12 @@ def get_images_by_category(category, style=None, location=None):
             "text": f"I encountered an error while fetching {category} images.",
             "carousel": {
                 "title": f"{category.title()} Collection",
-                "items": []
+                "items": get_fallback_images(category)
             }
         }
 
 def get_venue_images():
-    """Get venue images."""
+    """Get venue images from Vercel Blob Storage."""
     base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
     folder = "wedding venues"
     
@@ -138,7 +144,7 @@ def get_venue_images():
     ]
 
 def get_dress_images():
-    """Get dress images."""
+    """Get dress images from Vercel Blob Storage."""
     base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
     folder = "wedding dresses"
     
@@ -186,7 +192,7 @@ def get_dress_images():
     ]
 
 def get_hairstyle_images():
-    """Get hairstyle images."""
+    """Get hairstyle images from Vercel Blob Storage."""
     base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
     folder = "wedding hairstyles"
     
@@ -224,7 +230,7 @@ def get_hairstyle_images():
     ]
 
 def get_cake_images():
-    """Get cake images."""
+    """Get cake images from Vercel Blob Storage."""
     base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
     folder = "wedding cakes"
     
@@ -264,4 +270,86 @@ def get_cake_images():
             "price": "$$",
             "tags": ["Bohemian", "Boho", "Artistic"]
         }
-    ] 
+    ]
+
+def get_fallback_images(category):
+    """Provide fallback images if the primary source fails."""
+    if category.lower() == "venues":
+        return [
+            {
+                "image": "https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=800&auto=format&fit=crop",
+                "title": "Garden Wedding Venue",
+                "description": "Beautiful garden wedding setup with floral arch",
+                "location": "Garden Estate",
+                "price": "$$$",
+                "tags": ["Garden", "Outdoor", "Floral"]
+            },
+            {
+                "image": "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&auto=format&fit=crop",
+                "title": "Elegant Ballroom",
+                "description": "Luxurious ballroom venue with crystal chandeliers",
+                "location": "Luxury Hotel",
+                "price": "$$$$",
+                "tags": ["Ballroom", "Luxury", "Indoor"]
+            }
+        ]
+    elif category.lower() == "dresses":
+        return [
+            {
+                "image": "https://images.unsplash.com/photo-1594612174519-51e4f6d27557?w=800&auto=format&fit=crop",
+                "title": "Elegant Wedding Dress",
+                "description": "Classic white wedding gown with lace details",
+                "designer": "Bridal Collection",
+                "price": "$$$",
+                "tags": ["Classic", "Lace", "Elegant"]
+            },
+            {
+                "image": "https://images.unsplash.com/photo-1596443686119-d1fd5e1d2ac8?w=800&auto=format&fit=crop",
+                "title": "Modern Wedding Dress",
+                "description": "Sleek modern wedding dress design",
+                "designer": "Modern Bridal",
+                "price": "$$$$",
+                "tags": ["Modern", "Sleek", "Minimalist"]
+            }
+        ]
+    elif category.lower() == "hairstyles":
+        return [
+            {
+                "image": "https://images.unsplash.com/photo-1579128860537-4efb8efbe6cb?w=800&auto=format&fit=crop",
+                "title": "Elegant Updo",
+                "description": "Sophisticated updo with floral accents",
+                "tags": ["Updo", "Elegant", "Floral"]
+            },
+            {
+                "image": "https://images.unsplash.com/photo-1513112300738-bbb13af7028e?w=800&auto=format&fit=crop",
+                "title": "Romantic Waves",
+                "description": "Soft flowing waves with side-swept sections",
+                "tags": ["Waves", "Romantic", "Flowing"]
+            }
+        ]
+    elif category.lower() == "cakes":
+        return [
+            {
+                "image": "https://images.unsplash.com/photo-1535254973040-607b474cb50d?w=800&auto=format&fit=crop",
+                "title": "Elegant Wedding Cake",
+                "description": "Multi-tier white wedding cake with floral decorations",
+                "price": "$$$",
+                "tags": ["White", "Floral", "Multi-tier"]
+            },
+            {
+                "image": "https://images.unsplash.com/photo-1622896784083-cc051313dbab?w=800&auto=format&fit=crop",
+                "title": "Modern Wedding Cake",
+                "description": "Contemporary wedding cake design with gold accents",
+                "price": "$$$$",
+                "tags": ["Modern", "Gold", "Contemporary"]
+            }
+        ]
+    else:
+        return [
+            {
+                "image": "https://images.unsplash.com/photo-1465495976277-4387d4b0b4c6?w=800&auto=format&fit=crop",
+                "title": "Wedding Inspiration",
+                "description": "Beautiful wedding inspiration",
+                "tags": ["Wedding", "Inspiration"]
+            }
+        ] 
