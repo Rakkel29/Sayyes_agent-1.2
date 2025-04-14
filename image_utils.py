@@ -35,167 +35,43 @@ def clean_description(description: str) -> str:
     
     return description
 
-def list_venue_images() -> List[Dict]:
-    """Get a list of venue images with their metadata."""
-    filenames = [
-        "eventsbomb_09464_A_very_elegant_and_luxurious.png",
-        "amadeowang99_French_modern_wedding.png",
-        "amadeowang99_Luxury_wedding_venue.png",
-        "amadeowang99_Rustic_wedding_venue.png",
-        "amadeowang99_Modern_wedding_venue.png"
-    ]
-    folder = "wedding venues"
-    
-    # Create base URL for blob storage
-    base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
-    
-    images = [
-        {
-            "image": f"{base_url}/{quote(folder)}/{quote(filename)}",
-            "title": clean_title(filename),
-            "description": "Elegant wedding venue in Austin",
-            "location": "Austin, TX",
-            "price": "$$",
-            "tags": ["Garden", "Outdoor"],
-            "share_url": f"{base_url}/share/{quote(filename)}"
-        }
-        for filename in filenames
-    ]
-    return images
-
-def list_dress_images() -> List[Dict]:
-    """Get a list of dress images with their metadata."""
-    filenames = [
-        "alexb_79_Classic_Wedding_Dress.png",
-        "amadeowang99_Modern_Wedding_Dress.png",
-        "amadeowang99_Luxury_Wedding_Dress.png",
-        "amadeowang99_Rustic_Wedding_Dress.png",
-        "amadeowang99_Bohemian_Wedding_Dress.png"
-    ]
-    folder = "wedding dresses"
-    
-    # Create base URL for blob storage
-    base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
-    
-    return [
-        {
-            "image": f"{base_url}/{quote(folder)}/{quote(filename)}",
-            "title": clean_title(filename),
-            "description": "Beautiful wedding dress",
-            "designer": "Designer Collection",
-            "price": "$$$",
-            "tags": ["Dress", "Wedding"],
-            "share_url": f"{base_url}/share/{quote(filename)}"
-        }
-        for filename in filenames
-    ]
-
-def list_hairstyle_images() -> List[Dict]:
-    """Get a list of hairstyle images with their metadata."""
-    filenames = [
-        "alexb_79_Classic_Wedding_Hairstyle.png",
-        "amadeowang99_Modern_Wedding_Hairstyle.png",
-        "amadeowang99_Luxury_Wedding_Hairstyle.png",
-        "amadeowang99_Rustic_Wedding_Hairstyle.png",
-        "amadeowang99_Bohemian_Wedding_Hairstyle.png"
-    ]
-    folder = "wedding hairstyles"
-    
-    # Create base URL for blob storage
-    base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
-    
-    return [
-        {
-            "image": f"{base_url}/{quote(folder)}/{quote(filename)}",
-            "title": clean_title(filename),
-            "description": "Stunning wedding hairstyle",
-            "tags": ["Hairstyle", "Wedding"],
-            "share_url": f"{base_url}/share/{quote(filename)}"
-        }
-        for filename in filenames
-    ]
-
-def list_cake_images() -> List[Dict]:
-    """Get a list of cake images with their metadata."""
-    filenames = [
-        "alexb_79_Classic_Wedding_Cake.png",
-        "amadeowang99_Modern_Wedding_Cake.png",
-        "amadeowang99_Luxury_Wedding_Cake.png",
-        "amadeowang99_Rustic_Wedding_Cake.png",
-        "amadeowang99_Bohemian_Wedding_Cake.png"
-    ]
-    folder = "wedding cakes"
-    
-    # Create base URL for blob storage
-    base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
-    
-    return [
-        {
-            "image": f"{base_url}/{quote(folder)}/{quote(filename)}",
-            "title": clean_title(filename),
-            "description": "Delicious wedding cake",
-            "price": "$$$",
-            "tags": ["Cake", "Wedding"],
-            "share_url": f"{base_url}/share/{quote(filename)}"
-        }
-        for filename in filenames
-    ]
-
-def get_images_by_category(category: str, style: Optional[str] = None, location: Optional[str] = None) -> Dict:
+def get_images_by_category(category, style=None, location=None):
     """
-    Get wedding images for a specific category with optional style and location filters.
+    Get images for a category with optional filters.
     
     Args:
-        category: Type of images (venues, dresses, hairstyles, cakes, etc.)
-        style: Optional style descriptor (rustic, modern, bohemian, etc.)
-        location: Optional location specification
+        category: Type of images (venues, dresses, hairstyles, cakes)
+        style: Optional style filter
+        location: Optional location filter
         
     Returns:
-        Dictionary containing image data and carousel information
+        Dictionary with image data
     """
     try:
-        # Map category to the appropriate list function
-        category_map = {
-            "venues": list_venue_images,
-            "dresses": list_dress_images,
-            "hairstyles": list_hairstyle_images,
-            "cakes": list_cake_images
-        }
+        # Call the appropriate function based on category
+        if category.lower() == "venues":
+            items = get_venue_images()
+        elif category.lower() == "dresses":
+            items = get_dress_images()
+        elif category.lower() == "hairstyles":
+            items = get_hairstyle_images()
+        elif category.lower() == "cakes":
+            items = get_cake_images()
+        else:
+            # Default: empty items
+            items = []
         
-        # Get the appropriate list function
-        list_function = category_map.get(category.lower())
-        if not list_function:
-            return {
-                "text": f"I couldn't find any images for the category: {category}",
-                "carousel": {
-                    "title": f"{category.title()} Collection",
-                    "items": []
-                }
-            }
+        # Apply style filter if provided
+        if style and items:
+            items = [item for item in items if style.lower() in item.get("title", "").lower() or 
+                    style.lower() in item.get("description", "").lower() or
+                    any(style.lower() in tag.lower() for tag in item.get("tags", []))]
         
-        # Get the images
-        items = list_function()
+        # Apply location filter if provided for venues
+        if location and category.lower() == "venues" and items:
+            items = [item for item in items if location.lower() in item.get("location", "").lower()]
         
-        # Filter by style if provided
-        if style:
-            style_lower = style.lower()
-            # Look for style in the title, description, and tags
-            items = [
-                item for item in items if 
-                style_lower in item.get("title", "").lower() or
-                style_lower in item.get("description", "").lower() or
-                any(style_lower in tag.lower() for tag in item.get("tags", []))
-            ]
-        
-        # Filter by location if provided and if the category is venues
-        if location and category.lower() == "venues":
-            location_lower = location.lower()
-            items = [
-                item for item in items if 
-                location_lower in item.get("location", "").lower()
-            ]
-        
-        # Format the response
+        # Return the formatted response
         return {
             "text": f"Here are some {style if style else ''} {category} {f'in {location}' if location else ''}!",
             "carousel": {
@@ -211,4 +87,181 @@ def get_images_by_category(category: str, style: Optional[str] = None, location:
                 "title": f"{category.title()} Collection",
                 "items": []
             }
-        } 
+        }
+
+def get_venue_images():
+    """Get venue images."""
+    base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
+    folder = "wedding venues"
+    
+    return [
+        {
+            "image": f"{base_url}/{quote(folder)}/eventsbomb_09464_A_very_elegant_and_luxurious.png",
+            "title": "Elegant Luxurious Venue",
+            "description": "A very elegant and luxurious wedding venue",
+            "location": "Austin, TX",
+            "price": "$$$",
+            "tags": ["Elegant", "Luxury", "Indoor"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_French_modern_wedding.png",
+            "title": "French Modern Wedding",
+            "description": "Beautiful modern venue with French influences",
+            "location": "Paris, France",
+            "price": "$$$$",
+            "tags": ["Modern", "French", "Elegant"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Luxury_wedding_venue.png",
+            "title": "Luxury Wedding Venue",
+            "description": "Opulent venue with luxurious details",
+            "location": "New York, NY",
+            "price": "$$$$$",
+            "tags": ["Luxury", "Opulent", "Grand"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Rustic_wedding_venue.png",
+            "title": "Rustic Wedding Venue",
+            "description": "Charming rustic venue with natural elements",
+            "location": "Montana",
+            "price": "$$",
+            "tags": ["Rustic", "Barn", "Natural"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Modern_wedding_venue.png",
+            "title": "Modern Wedding Venue",
+            "description": "Contemporary venue with sleek design",
+            "location": "Los Angeles, CA",
+            "price": "$$$",
+            "tags": ["Modern", "Contemporary", "Urban"]
+        }
+    ]
+
+def get_dress_images():
+    """Get dress images."""
+    base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
+    folder = "wedding dresses"
+    
+    return [
+        {
+            "image": f"{base_url}/{quote(folder)}/alexb_79_Classic_Wedding_Dress.png",
+            "title": "Classic Wedding Dress",
+            "description": "Timeless elegant wedding gown",
+            "designer": "Classic Bridal",
+            "price": "$$$",
+            "tags": ["Classic", "Elegant", "Traditional"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Modern_Wedding_Dress.png",
+            "title": "Modern Wedding Dress",
+            "description": "Contemporary sleek wedding gown",
+            "designer": "Modern Bride",
+            "price": "$$$",
+            "tags": ["Modern", "Sleek", "Minimalist"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Luxury_Wedding_Dress.png",
+            "title": "Luxury Wedding Dress",
+            "description": "Opulent detailed wedding gown",
+            "designer": "Luxury Couture",
+            "price": "$$$$",
+            "tags": ["Luxury", "Opulent", "Detailed"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Rustic_Wedding_Dress.png",
+            "title": "Rustic Wedding Dress",
+            "description": "Natural bohemian wedding gown",
+            "designer": "Rustic Bride",
+            "price": "$$",
+            "tags": ["Rustic", "Bohemian", "Natural"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Bohemian_Wedding_Dress.png",
+            "title": "Bohemian Wedding Dress",
+            "description": "Free-spirited boho wedding gown",
+            "designer": "Boho Bridal",
+            "price": "$$",
+            "tags": ["Bohemian", "Boho", "Flowy"]
+        }
+    ]
+
+def get_hairstyle_images():
+    """Get hairstyle images."""
+    base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
+    folder = "wedding hairstyles"
+    
+    return [
+        {
+            "image": f"{base_url}/{quote(folder)}/alexb_79_Classic_Wedding_Hairstyle.png",
+            "title": "Classic Wedding Hairstyle",
+            "description": "Timeless elegant updo",
+            "tags": ["Classic", "Elegant", "Updo"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Modern_Wedding_Hairstyle.png",
+            "title": "Modern Wedding Hairstyle",
+            "description": "Contemporary sleek style",
+            "tags": ["Modern", "Sleek", "Contemporary"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Luxury_Wedding_Hairstyle.png",
+            "title": "Luxury Wedding Hairstyle",
+            "description": "Glamorous detailed style",
+            "tags": ["Luxury", "Glamorous", "Detailed"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Rustic_Wedding_Hairstyle.png",
+            "title": "Rustic Wedding Hairstyle",
+            "description": "Natural bohemian style",
+            "tags": ["Rustic", "Bohemian", "Natural"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Bohemian_Wedding_Hairstyle.png",
+            "title": "Bohemian Wedding Hairstyle",
+            "description": "Free-spirited boho style",
+            "tags": ["Bohemian", "Boho", "Flowy"]
+        }
+    ]
+
+def get_cake_images():
+    """Get cake images."""
+    base_url = f"https://{VERCEL_PROJECT_ID}.public.blob.vercel-storage.com"
+    folder = "wedding cakes"
+    
+    return [
+        {
+            "image": f"{base_url}/{quote(folder)}/alexb_79_Classic_Wedding_Cake.png",
+            "title": "Classic Wedding Cake",
+            "description": "Timeless elegant tiered cake",
+            "price": "$$$",
+            "tags": ["Classic", "Elegant", "Traditional"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Modern_Wedding_Cake.png",
+            "title": "Modern Wedding Cake",
+            "description": "Contemporary minimalist cake",
+            "price": "$$$",
+            "tags": ["Modern", "Minimalist", "Geometric"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Luxury_Wedding_Cake.png",
+            "title": "Luxury Wedding Cake",
+            "description": "Opulent detailed multi-tier cake",
+            "price": "$$$$",
+            "tags": ["Luxury", "Opulent", "Detailed"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Rustic_Wedding_Cake.png",
+            "title": "Rustic Wedding Cake",
+            "description": "Natural rustic naked cake",
+            "price": "$$",
+            "tags": ["Rustic", "Natural", "Naked Cake"]
+        },
+        {
+            "image": f"{base_url}/{quote(folder)}/amadeowang99_Bohemian_Wedding_Cake.png",
+            "title": "Bohemian Wedding Cake",
+            "description": "Artistic boho-inspired cake",
+            "price": "$$",
+            "tags": ["Bohemian", "Boho", "Artistic"]
+        }
+    ] 

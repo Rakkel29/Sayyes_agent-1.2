@@ -1,24 +1,20 @@
 import os
 from flask import Flask, request, jsonify
-from dotenv import load_dotenv
 from flask_cors import CORS
 import logging
-from sayyes_agent import process_message  # import the process_message function
+from sayyes_agent import process_message
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
-
 # Initialize Flask app
 app = Flask(__name__)
 
-# Configure CORS more precisely
+# Configure CORS to allow preflight requests explicitly
 CORS(app, resources={
-    r"/api/*": {
-        "origins": ["*"],  # Allow all origins
+    r"/*": {
+        "origins": "*",  # Allow all origins
         "methods": ["GET", "POST", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization", "Origin"]
     }
@@ -38,26 +34,22 @@ def chat():
         return response
     
     try:
+        # Log request headers for debugging
+        logger.info(f"Request headers: {dict(request.headers)}")
+        
         data = request.get_json()
         if not data:
             logger.warning("No data provided in request")
             return jsonify({"error": "No data provided"}), 400
 
         # Log incoming request
-        logger.info(f"Received chat request with keys: {list(data.keys())}")
+        logger.info(f"Received chat request: {data}")
         
-        # Process the message with the function that accepts a dictionary
+        # Process the message
         result = process_message(data)
         
-        # Log the response (without sensitive data)
-        if result:
-            logger.info(f"Sending response with keys: {list(result.keys())}")
-        else:
-            logger.warning("process_message returned None")
-            result = {
-                "text": "I'm sorry, I encountered an error processing your request.",
-                "state": {}
-            }
+        # Log the response
+        logger.info(f"Sending response: {result}")
         
         # Return the result
         return jsonify(result), 200
@@ -87,5 +79,4 @@ def home():
 
 if __name__ == '__main__':
     logger.info(f"Starting server on port {port}")
-    logger.info("Chat functionality: ENABLED (production mode)")
     app.run(host='0.0.0.0', port=port, debug=False) 

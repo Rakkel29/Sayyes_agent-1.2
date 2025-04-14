@@ -49,20 +49,20 @@ def get_wedding_images(category: str, style=None, location=None) -> str:
         print(f"Error in get_wedding_images: {e}")
         return json.dumps([])
 
-def process_message(message_data):
+def process_message(data):
     """
     Process a message and return the response.
     
     Args:
-        message_data: Dictionary containing messages and state
+        data: Dictionary containing messages and state
         
     Returns:
         Dictionary with response text and updated state
     """
-    # Extract messages and state from the request
     try:
-        messages = message_data.get("messages", [])
-        state = message_data.get("state", {})
+        # Extract messages and state from the request
+        messages = data.get("messages", [])
+        state = data.get("state", {})
         
         # Initialize state if empty
         if not state:
@@ -77,53 +77,19 @@ def process_message(message_data):
         # Get the last message from the user
         if not messages or len(messages) == 0:
             return {
-                "text": "Hello! I'm your wedding planning assistant. How can I help you today?",
+                "text": "Hey! I'm your AI wedding planner. Ready to explore your dream day?",
+                "options": ["Show me venues", "Show me dresses", "Help with wedding party"],
                 "state": state
             }
         
+        # Get the last message content
         last_message = messages[-1].get("content", "") if isinstance(messages[-1], dict) else ""
         
-        print(f"Processing message: {last_message}")
-        
-        # If LLM is not available, return a fallback response
-        if llm is None:
-            return {
-                "text": "I'm sorry, but I'm having trouble accessing my language model. Please check your API keys and try again.",
-                "state": state
-            }
-        
-        # Create message objects for the LLM
-        conversation_history = []
-        for msg in messages:
-            if isinstance(msg, dict):
-                role = msg.get("role", "user")
-                content = msg.get("content", "")
-                if role == "user":
-                    conversation_history.append(HumanMessage(content=content))
-                else:
-                    conversation_history.append(AIMessage(content=content))
-            else:
-                # Handle case where message is a string
-                conversation_history.append(HumanMessage(content=str(msg)))
-        
-        # Prepare system message based on state
-        system_content = """
-        You are Snatcha, a fun, warm, and helpful AI wedding planning assistant.
-        Keep responses short, friendly, and use emojis where appropriate.
-        Respond like you're helping a close friend, but stay focused on the task.
-        """
-        
-        system_message = SystemMessage(content=system_content)
-        
-        # Basic response using LLM
-        response = llm.invoke([system_message] + conversation_history)
-        response_text = response.content
-        
         # Check message for keywords to determine next actions
-        message_lower = last_message.lower() if isinstance(last_message, str) else ""
+        message_lower = last_message.lower()
         
         # Check for venue-related queries
-        if ("venue" in message_lower or "location" in message_lower) and not state["seen_venues"]:
+        if ("venue" in message_lower or "location" in message_lower) and not state.get("seen_venues", False):
             state["seen_venues"] = True
             
             # Extract style and location if present
@@ -144,19 +110,18 @@ def process_message(message_data):
                 location = message_lower.split("in ")[-1].strip()
                 location = location.split()[0]  # Take the first word after "in"
             
-            # Get venue images
+            # Provide venue data
             venue_data = get_images_by_category("venues", style, location)
             
-            if venue_data and "carousel" in venue_data and venue_data["carousel"]["items"]:
-                return {
-                    "text": f"Here are some beautiful wedding venues that might interest you! {response_text}",
-                    "action": "show_carousel",
-                    "carousel": venue_data["carousel"],
-                    "state": state
-                }
+            return {
+                "text": "Check out these gorgeous venues! Any catching your eye? 👀",
+                "carousel": venue_data.get("carousel"),
+                "options": ["Show me dresses", "Show me hairstyles", "Help with wedding party"],
+                "state": state
+            }
         
         # Check for dress-related queries
-        elif ("dress" in message_lower or "gown" in message_lower) and not state["seen_dresses"]:
+        elif ("dress" in message_lower or "gown" in message_lower) and not state.get("seen_dresses", False):
             state["seen_dresses"] = True
             
             # Extract style if present
@@ -170,19 +135,18 @@ def process_message(message_data):
             elif "bohemian" in message_lower or "boho" in message_lower:
                 style = "bohemian"
             
-            # Get dress images
+            # Provide dress data
             dress_data = get_images_by_category("dresses", style)
             
-            if dress_data and "carousel" in dress_data and dress_data["carousel"]["items"]:
-                return {
-                    "text": f"Here are some stunning wedding dresses! {response_text}",
-                    "action": "show_carousel",
-                    "carousel": dress_data["carousel"],
-                    "state": state
-                }
+            return {
+                "text": "These dresses are giving MAIN CHARACTER energy! ✨",
+                "carousel": dress_data.get("carousel"),
+                "options": ["Show me venues", "Show me hairstyles", "Help with wedding party"],
+                "state": state
+            }
         
         # Check for hairstyle-related queries
-        elif ("hair" in message_lower or "hairstyle" in message_lower) and not state["seen_hairstyles"]:
+        elif ("hair" in message_lower or "hairstyle" in message_lower) and not state.get("seen_hairstyles", False):
             state["seen_hairstyles"] = True
             
             # Extract style if present
@@ -196,53 +160,62 @@ def process_message(message_data):
             elif "bohemian" in message_lower or "boho" in message_lower:
                 style = "bohemian"
             
-            # Get hairstyle images
+            # Provide hairstyle data
             hairstyle_data = get_images_by_category("hairstyles", style)
             
-            if hairstyle_data and "carousel" in hairstyle_data and hairstyle_data["carousel"]["items"]:
-                return {
-                    "text": f"Here are some beautiful wedding hairstyles! {response_text}",
-                    "action": "show_carousel",
-                    "carousel": hairstyle_data["carousel"],
-                    "state": state
-                }
+            return {
+                "text": "Hair is everything! Check these out! 💇‍♀️",
+                "carousel": hairstyle_data.get("carousel"),
+                "options": ["Show me venues", "Show me dresses", "Help with wedding party"],
+                "state": state
+            }
+        
+        # Check for wedding party help
+        elif "wedding party" in message_lower or "party" in message_lower:
+            return {
+                "text": "Here's who does what in your squad! Delegate like a boss! 💅",
+                "options": ["Show me venues", "Show me dresses", "Show me hairstyles"],
+                "state": state
+            }
         
         # Check for cake-related queries
         elif "cake" in message_lower:
-            # Get cake images
+            # Provide cake data
             cake_data = get_images_by_category("cakes")
             
-            if cake_data and "carousel" in cake_data and cake_data["carousel"]["items"]:
-                return {
-                    "text": f"Here are some delicious wedding cake designs! {response_text}",
-                    "action": "show_carousel",
-                    "carousel": cake_data["carousel"],
-                    "state": state
-                }
+            return {
+                "text": "Here are some delicious wedding cake designs! 🎂",
+                "carousel": cake_data.get("carousel"),
+                "options": ["Show me venues", "Show me dresses", "Show me hairstyles"],
+                "state": state
+            }
         
         # Check if we've shown enough content to show a soft CTA
-        if (state["seen_venues"] or state["seen_dresses"] or state["seen_hairstyles"]) and not state["soft_cta_shown"]:
+        if (state.get("seen_venues") or state.get("seen_dresses") or state.get("seen_hairstyles")) and not state.get("soft_cta_shown"):
             state["soft_cta_shown"] = True
             return {
-                "text": f"{response_text}\n\nWould you like to explore more options or get personalized wedding planning assistance?",
+                "text": "Would you like to explore more options or get personalized wedding planning assistance?",
                 "action": "soft_cta",
                 "buttons": ["Explore More", "Get Planning Help"],
+                "options": ["Explore More", "Get Planning Help"],
                 "state": state
             }
         
         # Check if we've shown enough content to show a final CTA
-        if state["seen_venues"] and state["seen_dresses"] and state["seen_hairstyles"] and not state["cta_shown"]:
+        if state.get("seen_venues") and state.get("seen_dresses") and state.get("seen_hairstyles") and not state.get("cta_shown"):
             state["cta_shown"] = True
             return {
-                "text": f"{response_text}\n\nI've shown you a sneak peek of what I can do! Ready to take your wedding planning to the next level? Over 500 couples have already joined our exclusive wedding planning community!",
+                "text": "I've shown you a sneak peek of what I can do! Ready to take your wedding planning to the next level? Over 500 couples have already joined our exclusive wedding planning community!",
                 "action": "cta",
                 "buttons": ["Join the Waitlist", "Continue Exploring"],
+                "options": ["Join the Waitlist", "Continue Exploring"],
                 "state": state
             }
         
         # Default response
         return {
-            "text": response_text,
+            "text": generate_response(message_lower),
+            "options": get_options_based_on_state(state),
             "state": state
         }
     
@@ -251,4 +224,32 @@ def process_message(message_data):
         return {
             "text": "I'm sorry, but I encountered an error processing your message. Please try again.",
             "state": state if isinstance(state, dict) else {}
-        } 
+        }
+
+def get_options_based_on_state(state):
+    """Get appropriate options based on the current state."""
+    if state.get("seen_venues"):
+        return ["Show me dresses", "Show me hairstyles", "Help with wedding party"]
+    elif state.get("seen_dresses"):
+        return ["Show me venues", "Show me hairstyles", "Help with wedding party"]
+    elif state.get("seen_hairstyles"):
+        return ["Show me venues", "Show me dresses", "Help with wedding party"]
+    else:
+        return ["Show me venues", "Show me dresses", "Show me hairstyles", "Help with wedding party"]
+
+def generate_response(message):
+    """Generate a conversational response."""
+    if "hello" in message or "hi" in message or "hey" in message:
+        return "Hey there! ✨ What can I help you with for your wedding planning journey?"
+    
+    if "theme" in message or "style" in message:
+        return "Ooh, let's talk aesthetic! ✨ Are you thinking classic elegance, rustic charm, beachy vibes, or something totally unique? I've got ideas for days! 💭"
+    
+    if "budget" in message or "cost" in message:
+        return "Let's talk budget! 💰 I can help you find options that won't break the bank but still give you that dream wedding vibe. What range are we working with? 💎"
+    
+    if "date" in message or "when" in message:
+        return "When are you thinking of having the big day? 📅 Summer weddings are gorgeous, but fall has those amazing colors. Winter is magical too! What season speaks to you? 🌸❄️🍂"
+    
+    # Default response
+    return "I'm here to help with your wedding planning journey! What aspect are you most excited about? 💖" 
