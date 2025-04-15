@@ -69,9 +69,19 @@ def get_images_by_category(category, style=None, location=None):
             if not item.get("tags"):
                 item["tags"] = [category.title(), "Wedding"]
             
-            # Add share_url if missing
-            if not item.get("share_url"):
-                item["share_url"] = item.get("image", "")
+            # Ensure image field is always populated
+            if not item.get("image"):
+                item["image"] = item.get("share_url", "")
+            
+            # Add style field if not present
+            if not item.get("style"):
+                item["style"] = item.get("tags", [])
+            
+            # Add title2 field
+            item["title2"] = f"{category.title()} Collection"
+            
+            # Add options field
+            item["options"] = get_options_for_category(category)
         
         # Make sure we have at least one item
         if not items:
@@ -94,6 +104,16 @@ def get_images_by_category(category, style=None, location=None):
                 "items": get_fallback_images(category)
             }
         }
+
+def get_options_for_category(category):
+    """Get the options to show based on the category."""
+    all_options = {
+        "venues": ["Show me dresses", "Show me hairstyles", "Show me cakes"],
+        "dresses": ["Show me venues", "Show me hairstyles", "Show me cakes"],
+        "hairstyles": ["Show me venues", "Show me dresses", "Show me cakes"],
+        "cakes": ["Show me venues", "Show me dresses", "Show me hairstyles"]
+    }
+    return all_options.get(category.lower(), ["Show me venues", "Show me dresses"])
 
 def get_venue_images():
     """Get venue images from Vercel Blob Storage."""
