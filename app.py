@@ -1,125 +1,116 @@
-import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import logging
-from sayyes_agent import process_message
-import random
+import os
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Initialize Flask app
 app = Flask(__name__)
+CORS(app)  # Enable CORS to allow frontend requests from Vercel
 
-# Configure CORS to allow preflight requests explicitly
-CORS(app, resources={
-    r"/*": {
-        "origins": "*",  # Allow all origins
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization", "Origin"]
-    }
-})
-
-# Get port from environment variable or default to 8080
-port = int(os.environ.get('PORT', 8080))
-
-# Base URL for blob storage
-BASE_URL = "https://cmonwuzihtvua2sq.public.blob.vercel-storage.com"
-
-# Image lists matching your uploaded files
-dress_images = [
-    f"{BASE_URL}/dresses/wedding_dress_mermaid_1.png",
-    f"{BASE_URL}/dresses/wedding_dress_aline_2.png",
-    f"{BASE_URL}/dresses/wedding_dress_white_3.png",
-    f"{BASE_URL}/dresses/wedding_dress_diamond_4.png"
-]
-hairstyle_images = [
-    f"{BASE_URL}/hairstyles/hairstyle_bridal_1.png",
-    f"{BASE_URL}/hairstyles/hairstyle_high_bun_2.png",
-    f"{BASE_URL}/hairstyles/hairstyle_quinceanera_3.png",
-    f"{BASE_URL}/hairstyles/hairstyle_prom_half_up_4.png"
-]
-venue_images = [
-    f"{BASE_URL}/wedding_venues/venue_modern_1.png",
-    f"{BASE_URL}/wedding_venues/venue_rustic_2.png",
-    f"{BASE_URL}/wedding_venues/venue_elegant_3.png",
-    f"{BASE_URL}/wedding_venues/venue_luxurious_4.png"
-]
-cake_images = [
-    f"{BASE_URL}/cakes/cake_floral_1.png",
-    f"{BASE_URL}/cakes/cake_modern_2.png",
-    f"{BASE_URL}/cakes/cake_vintage_3.png",
-    f"{BASE_URL}/cakes/cake_rustic_4.png"
-]
-
-# Track the last used image index for rotation
-image_indices = {
-    'dresses': 0,
-    'hairstyles': 0,
-    'venues': 0,
-    'cakes': 0
-}
-
-def get_next_image(category, images):
-    global image_indices
-    image_indices[category] = (image_indices[category] + 1) % len(images)
-    return images[image_indices[category]]
-
-@app.route('/api/chat', methods=['POST', 'OPTIONS'])
+@app.route('/api/chat', methods=['POST'])
 def chat():
-    """
-    Endpoint to handle chat requests from the frontend.
-    """
-    # Handle preflight OPTIONS request
-    if request.method == 'OPTIONS':
-        response = app.make_default_options_response()
-        return response
-    
     try:
-        # Log request headers for debugging
-        logger.info(f"Request headers: {dict(request.headers)}")
-        
         data = request.get_json()
         if not data:
-            logger.warning("No data provided in request")
-            return jsonify({"error": "No data provided"}), 400
+            return jsonify({"error": "No JSON data provided"}), 400
 
-        # Log incoming request
-        logger.info(f"Received chat request: {data}")
-        
-        # Process the message
-        result = process_message(data)
-        
-        # Log the response
-        logger.info(f"Sending response: {result}")
-        
-        # Return the result
-        return jsonify(result), 200
+        user_message = data.get('message', '')
+        stage = data.get('stage', 'initial_greeting')
+        user_name = data.get('user_name', '')
+        preferences = data.get('preferences', {})
 
+        # Simple response logic (replace with your AI logic if needed)
+        response = {
+            "description": f"Hi {user_name or 'there'}! I'm here to help with your wedding planning. What would you like to do?",
+            "stage": "main_options",
+            "options": ["Show me venues", "Show me dresses", "Show me hairstyles", "Show me wedding cakes", "Help with wedding party"]
+        }
+
+        # Handle specific user messages
+        if "venue" in user_message.lower():
+            response = {
+                "description": f"Let's find the perfect spot for your big day, {user_name or 'sweetie'}! Here are some gorgeous venues in Austin: 🌟",
+                "stage": "venues_path",
+                "options": [
+                    "Show me more venues",
+                    "Show me dresses",
+                    "Show me hairstyles",
+                    "Show me wedding cakes",
+                    "Help with wedding party"
+                ]
+            }
+        elif "dress" in user_message.lower():
+            response = {
+                "description": f"Let's find the dress of your dreams, {user_name or 'sweetie'}! Here are some stunning wedding dresses: 👗",
+                "stage": "dresses_path",
+                "options": [
+                    "Show me more dresses",
+                    "Show me venues",
+                    "Show me hairstyles",
+                    "Show me wedding cakes",
+                    "Help with wedding party"
+                ]
+            }
+        elif "hair" in user_message.lower():
+            response = {
+                "description": f"Let's find the perfect hairstyle for your big day, {user_name or 'sweetie'}! Here are some gorgeous options: 💇‍♀️",
+                "stage": "hairstyles_path",
+                "options": [
+                    "Show me more hairstyles",
+                    "Show me venues",
+                    "Show me dresses",
+                    "Show me wedding cakes",
+                    "Help with wedding party"
+                ]
+            }
+        elif "cake" in user_message.lower():
+            response = {
+                "description": f"Let's find a delicious cake for your celebration, {user_name or 'sweetie'}! Here are some beautiful wedding cakes: 🎂",
+                "stage": "wedding_cakes_path",
+                "options": [
+                    "Show me more cakes",
+                    "Show me venues",
+                    "Show me dresses",
+                    "Show me hairstyles",
+                    "Help with wedding party"
+                ]
+            }
+        elif "party" in user_message.lower() or "help" in user_message.lower():
+            response = {
+                "description": f"Let's get your wedding party organized, {user_name or 'sweetie'}! Here's how we can manage tasks: 👥",
+                "stage": "wedding_party_path",
+                "partyTasks": {
+                    "Assign Tasks": {
+                        "Best Person": ["Plan bachelor/bachelorette party", "Give a toast at the reception"],
+                        "Maid of Honor": ["Help with dress shopping", "Assist with wedding day prep"],
+                        "Groomsmen": ["Assist with setup", "Help with transportation"],
+                        "Bridesmaids": ["Help with decorations", "Support the bride emotionally"]
+                    },
+                    "Track Progress": {
+                        "Best Person": ["Party planning in progress", "Toast prepared"],
+                        "Maid of Honor": ["Dress shopping scheduled", "Prep checklist ready"],
+                        "Groomsmen": ["Setup confirmed", "Transportation arranged"],
+                        "Bridesmaids": ["Decorations in progress", "Support ongoing"]
+                    }
+                },
+                "options": [
+                    "Assign more tasks",
+                    "Track progress",
+                    "Show me venues",
+                    "Show me dresses",
+                    "Show me hairstyles",
+                    "Show me wedding cakes"
+                ]
+            }
+
+        return jsonify(response), 200
     except Exception as e:
-        logger.error(f"Error processing chat request: {str(e)}")
-        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        "status": "healthy",
-        "chat_available": True,
-        "version": "1.0.0"
-    }), 200
+# Health check endpoint
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "healthy"}), 200
 
-@app.route('/', methods=['GET'])
-def home():
-    """Root endpoint"""
-    return jsonify({
-        "status": "SayYes Agent API is running",
-        "chat_available": True,
-        "environment": "production",
-        "endpoints": ["/api/chat", "/api/health"]
-    }), 200
-
-if __name__ == '__main__':
-    logger.info(f"Starting server on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=False) 
+if __name__ == "__main__":
+    # Get port from environment variable or default to 5001 (Render typically uses 10000)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host="0.0.0.0", port=port)
